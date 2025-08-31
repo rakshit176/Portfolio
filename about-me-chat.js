@@ -5,6 +5,8 @@ const resumeContent = `
 RAKSHITH KUMAR K.N
 rakshitkumarkn@gmail.com | LinkedIn/Rakshith | GitHub/Rakshith | +91 9008796644
 
+Total Experience : 4.6 years
+
 EXPERIENCE
 AI Engineer, August Al (Aug 2024 - Present)
 - Developed and deployed AI-powered healthcare applications including automated patient interview systems, increasing medical data collection efficiency by 65% and reducing manual documentation time by 4 hours per patient, resulting in improved clinical workflow optimization across 3 major healthcare facilities.
@@ -70,28 +72,47 @@ KEY SKILLS
     const AboutMeChat = () => {
         const [messages, setMessages] = React.useState([]);
         const [inputValue, setInputValue] = React.useState('');
+        const [isLoading, setIsLoading] = React.useState(false);
+        const messageListRef = React.useRef(null);
+
+        React.useEffect(() => {
+            // Auto-scroll to bottom when new messages are added
+            if (messageListRef.current) {
+                messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+            }
+        }, [messages, isLoading]);
 
         const handleSendMessage = async () => {
             const text = inputValue;
             if (!text.trim()) return;
 
             const newMessage = { text, sender: 'user' };
-            setMessages(prev => [...prev, newMessage]);
+            const updatedMessages = [...messages, newMessage];
+            setMessages(updatedMessages);
             setInputValue('');
+            setIsLoading(true);
 
-            const agentResponse = await getAgentResponse(aboutMeAgent, text);
+            const agentResponse = await getAgentResponse(aboutMeAgent, text, updatedMessages);
+            setIsLoading(false);
             const newAgentMessage = { text: agentResponse, sender: 'agent' };
             setMessages(prev => [...prev, newAgentMessage]);
         };
 
         return (
             <div className="chat-container">
-                <div className="message-list">
+                <div className="message-list" ref={messageListRef}>
                     {messages.map((message, index) => (
                         <div key={index} className={`message ${message.sender}`}>
                             {message.text}
                         </div>
                     ))}
+                    {isLoading && (
+                        <div className="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    )}
                 </div>
                 <div className="chat-footer">
                     <input
@@ -100,24 +121,38 @@ KEY SKILLS
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
+                            if (e.key === 'Enter' && !isLoading) {
                                 handleSendMessage();
                             }
                         }}
+                        disabled={isLoading}
                     />
                 </div>
             </div>
         );
     };
 
-    const getAgentResponse = async (agent, message) => {
+    const getAgentResponse = async (agent, message, conversationHistory = []) => {
         const apiKey = 'AIzaSyDwX5NAuimLA-SoBwtPXuCWDlyP8uq37lw';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
 
         let prompt = `System: ${agent.prompt.system}\n`;
         prompt += `Rules: ${agent.prompt.rules.join(', ')}\n`;
         prompt += `Tone: ${agent.prompt.tone}\n`;
-        prompt += `Resume Content: ${resumeContent}\n`;
+        prompt += `Resume Content: ${resumeContent}\n\n`;
+        
+        // Add conversation history for context
+        if (conversationHistory.length > 1) {
+            prompt += `Previous conversation:\n`;
+            const recentHistory = conversationHistory.slice(-6); // Include last 6 messages for context
+            recentHistory.forEach((msg, index) => {
+                if (index < recentHistory.length - 1) { // Don't include the current message
+                    prompt += `${msg.sender === 'user' ? 'User' : 'Agent'}: ${msg.text}\n`;
+                }
+            });
+            prompt += '\n';
+        }
+        
         prompt += `User: ${message}\nAgent:`
 
         try {

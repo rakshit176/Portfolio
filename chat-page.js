@@ -132,7 +132,9 @@ const agents = [
 
         const [currentAgentName, setCurrentAgentName] = React.useState(agents[0].name);
         const [currentConversationIndex, setCurrentConversationIndex] = React.useState(0);
-        const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
+        const [isSidebarOpen, setIsSidebarOpen] = React.useState(window.innerWidth > 768);
+        const [isLoading, setIsLoading] = React.useState(false);
+        const messageListRef = React.useRef(null);
 
         React.useEffect(() => {
             try {
@@ -142,9 +144,32 @@ const agents = [
             }
         }, [conversations]);
 
+        React.useEffect(() => {
+            // Auto-scroll to bottom when new messages are added or loading state changes
+            if (messageListRef.current) {
+                messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+            }
+        }, [conversations, currentAgentName, currentConversationIndex, isLoading]);
+
+        React.useEffect(() => {
+            const handleResize = () => {
+                if (window.innerWidth > 768 && !isSidebarOpen) {
+                    setIsSidebarOpen(true);
+                } else if (window.innerWidth <= 768 && isSidebarOpen) {
+                    setIsSidebarOpen(false);
+                }
+            };
+
+            window.addEventListener('resize', handleResize);
+            return () => window.removeEventListener('resize', handleResize);
+        }, []);
+
         const handleSelectAgent = (agentName) => {
             setCurrentAgentName(agentName);
             setCurrentConversationIndex(0);
+            if (window.innerWidth <= 768) {
+                setIsSidebarOpen(false);
+            }
         };
 
         const handleNewChat = () => {
@@ -169,7 +194,7 @@ const agents = [
         };
 
         const handleSendMessage = async (text) => {
-            if (!text.trim()) return;
+            if (!text.trim() || isLoading) return;
 
             const newMessage = { text, sender: 'user' };
             
@@ -185,8 +210,13 @@ const agents = [
                 return newConversations;
             });
 
+            setIsLoading(true);
             const selectedAgent = agents.find(agent => agent.name === currentAgentName);
-            const agentResponse = await getAgentResponse(selectedAgent, text);
+            const currentMessages = conversations[currentAgentName][currentConversationIndex]?.messages || [];
+            const updatedMessages = [...currentMessages, newMessage];
+            const agentResponse = await getAgentResponse(selectedAgent, text, updatedMessages);
+            setIsLoading(false);
+            
             const newAgentMessage = { text: agentResponse, sender: 'agent' };
             
             setConversations(prev => {
@@ -226,21 +256,46 @@ const agents = [
 
         return (
             <div className={`chat-page-container ${isSidebarOpen ? 'sidebar-open' : 'sidebar-closed'}`}>
-                <div className="conversations-sidebar">
+                {window.innerWidth <= 768 && isSidebarOpen && (
+                    <div className="overlay active" onClick={() => setIsSidebarOpen(false)}></div>
+                )}
+                <div className={`conversations-sidebar ${!isSidebarOpen ? 'sidebar-closed' : ''}`}>
+                    <button 
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                        className={`sidebar-toggle-btn ${!isSidebarOpen ? 'sidebar-closed' : ''}`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            {isSidebarOpen ? (
+                                <>
+                                    <polyline points="15 18 9 12 15 6"></polyline>
+                                </>
+                            ) : (
+                                <>
+                                    <polyline points="9 18 15 12 9 6"></polyline>
+                                </>
+                            )}
+                        </svg>
+                    </button>
                     <div className="sidebar-header">
-                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="sidebar-toggle">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-                        </button>
                         <h2>Conversations</h2>
                     </div>
-                    <button onClick={handleNewChat} className="new-chat-button glow-on-hover">+ New Chat</button>
-                    <button onClick={handleClearHistory} className="clear-history-button glow-on-hover">Clear History</button>
+                    <button onClick={handleNewChat} className="new-chat-button glow-on-hover">
+                        <span>New Chat</span>
+                    </button>
+                    <button onClick={handleClearHistory} className="clear-history-button glow-on-hover">
+                        <span>Clear History</span>
+                    </button>
                     <div className="conversation-list">
                         {conversations[currentAgentName] && conversations[currentAgentName].map((conv, index) => (
                             <div
                                 key={index}
                                 className={`conversation-item ${currentConversationIndex === index ? 'active' : ''}`}
-                                onClick={() => setCurrentConversationIndex(index)}
+                                onClick={() => {
+                                    setCurrentConversationIndex(index);
+                                    if (window.innerWidth <= 768) {
+                                        setIsSidebarOpen(false);
+                                    }
+                                }}
                             >
                                 <p>{conv.messages.length > 0 ? conv.messages[0].text : 'New Conversation'}</p>
                             </div>
@@ -260,23 +315,31 @@ const agents = [
                             </button>
                         ))}
                     </div>
-                    <div className="message-list">
+                    <div className="message-list" ref={messageListRef}>
                         {conversations[currentAgentName] && conversations[currentAgentName][currentConversationIndex] && conversations[currentAgentName][currentConversationIndex].messages.map((message, msgIndex) => (
                                 <div key={msgIndex} className={`message ${message.sender}`}>
                                     {message.text}
                                 </div>
                             ))}
+                        {isLoading && (
+                            <div className="typing-indicator">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        )}
                     </div>
                     <div className="chat-footer">
                         <input
                             type="text"
                             placeholder="Type a message..."
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
+                                if (e.key === 'Enter' && !isLoading) {
                                     handleSendMessage(e.target.value);
                                     e.target.value = '';
                                 }
                             }}
+                            disabled={isLoading}
                         />
                         <button onClick={testApiKey} className="glow-on-hover">Test API Key</button>
                     </div>
@@ -285,7 +348,7 @@ const agents = [
         );
     };
 
-    const getAgentResponse = async (agent, message) => {
+    const getAgentResponse = async (agent, message, conversationHistory = []) => {
         const apiKey = 'AIzaSyDwX5NAuimLA-SoBwtPXuCWDlyP8uq37lw';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`;
 
@@ -295,6 +358,18 @@ const agents = [
 
         if (agent.name === 'Resume Agent') {
             prompt += `Resume Content: ${resumeContent}\n`;
+        }
+
+        // Add conversation history for context
+        if (conversationHistory.length > 1) {
+            prompt += `\nPrevious conversation:\n`;
+            const recentHistory = conversationHistory.slice(-6); // Include last 6 messages for context
+            recentHistory.forEach((msg, index) => {
+                if (index < recentHistory.length - 1) { // Don't include the current message
+                    prompt += `${msg.sender === 'user' ? 'User' : 'Agent'}: ${msg.text}\n`;
+                }
+            });
+            prompt += '\n';
         }
 
         prompt += `User: ${message}\nAgent:`
