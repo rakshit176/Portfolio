@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>About Me Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #161620;
+      --bg-tertiary: #1e1e2e;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0ab;
+      --accent-primary: #00f5ff;
+      --border-radius: 12px;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-secondary);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: var(--bg-secondary);
+    }
+    .message-list {
+      flex-grow: 1;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    .message {
+      padding: 0.8rem 1.2rem;
+      border-radius: var(--border-radius);
+      max-width: 80%;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+    .message.user {
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+      align-self: flex-end;
+      border-bottom-right-radius: 0;
+    }
+    .message.agent {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      align-self: flex-start;
+      border-bottom-left-radius: 0;
+    }
+    .chat-footer {
+      padding: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .chat-footer input {
+      width: 100%;
+      background: var(--bg-primary);
+      border: 1px solid var(--bg-tertiary);
+      border-radius: var(--border-radius);
+      padding: 0.8rem 1rem;
+      color: var(--text-primary);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="chat-root"></div>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script type="text/babel" src="about-me-chat.js"></script>
+</body>
+</html>
